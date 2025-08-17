@@ -1,6 +1,6 @@
 workflows:
   ios_ipa_nosign:
-    name: iOS IPA (no codesign)
+    name: iOS IPA (manual package, no codesign)
     max_build_duration: 60
     environment:
       flutter: stable
@@ -23,46 +23,35 @@ workflows:
             echo "✅ iOS folder already exists."
           fi
 
-      - name: Build Xcode archive (no codesign)
+      - name: Build iOS app (no codesign)
         script: |
           flutter clean
           flutter pub get
+          # construim .app fără semnare
           flutter build ios --release --no-codesign
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -sdk iphoneos \
-            -configuration Release \
-            archive -archivePath build/ios/archive/Runner.xcarchive \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=""
+          ls -la build/ios/iphoneos || true
 
-      - name: Export IPA (no codesign)
+      - name: Package unsigned IPA (manual)
         script: |
+          set -e
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "❌ Runner.app not found at $APP_PATH"
+            exit 1
+          fi
+
+          # Curățăm semnăturile vechi (dacă există)
+          rm -rf "$APP_PATH/_CodeSignature" || true
+          rm -f "$APP_PATH/embedded.mobileprovision" || true
+
+          # Împachetăm ca .ipa nesemnat
           mkdir -p build/ios/ipa
-          cat > ExportOptions.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>release-testing</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>-</string>
-            <key>provisioningProfiles</key>
-            <dict/>
-            <key>compileBitcode</key>
-            <false/>
-            <key>stripSwiftSymbols</key>
-            <true/>
-          </dict>
-          </plist>
-          EOF
-          xcodebuild -exportArchive \
-            -archivePath build/ios/archive/Runner.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=""
+          mkdir -p payload/Payload
+          cp -R "$APP_PATH" "payload/Payload/Runner.app"
+
+          (cd payload && zip -qry ../build/ios/ipa/Alexx626-unsigned.ipa Payload)
+
+          echo "✅ Unsigned IPA created at build/ios/ipa/Alexx626-unsigned.ipa"
 
     artifacts:
       - build/ios/ipa/*.ipa
