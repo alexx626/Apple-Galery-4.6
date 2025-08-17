@@ -17,20 +17,25 @@ workflows:
       - name: Ensure iOS platform
         script: |
           if [ ! -d "ios" ]; then
+            echo "⚡ Generating iOS project..."
             flutter create . --platforms=ios --project-name alexx626
+          else
+            echo "✅ iOS folder already exists."
           fi
 
       - name: Build Xcode archive (no codesign)
         script: |
+          flutter clean
+          flutter pub get
           flutter build ios --release --no-codesign
           xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -sdk iphoneos \
             -configuration Release \
             archive -archivePath build/ios/archive/Runner.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=""
 
-      - name: Export IPA
+      - name: Export IPA (no codesign)
         script: |
           mkdir -p build/ios/ipa
           cat > ExportOptions.plist <<EOF
@@ -39,9 +44,13 @@ workflows:
           <plist version="1.0">
           <dict>
             <key>method</key>
-            <string>ad-hoc</string>
+            <string>release-testing</string>
             <key>signingStyle</key>
             <string>manual</string>
+            <key>signingCertificate</key>
+            <string>-</string>
+            <key>provisioningProfiles</key>
+            <dict/>
             <key>compileBitcode</key>
             <false/>
             <key>stripSwiftSymbols</key>
@@ -53,7 +62,7 @@ workflows:
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
             -exportPath build/ios/ipa \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=""
 
     artifacts:
       - build/ios/ipa/*.ipa
