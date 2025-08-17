@@ -1,0 +1,16 @@
+name: alexx626
+description: AleXx626 iOS splash + home (Flutter minimal)
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/splash.jpg
