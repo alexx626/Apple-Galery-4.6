@@ -17,25 +17,43 @@ workflows:
       - name: Ensure iOS platform
         script: |
           if [ ! -d "ios" ]; then
-            echo "⚡ Generating iOS project..."
             flutter create . --platforms=ios --project-name alexx626
-          else
-            echo "✅ iOS folder already exists."
           fi
 
-      - name: Update Podfile (set min iOS 15)
+      - name: Build Xcode archive (no codesign)
         script: |
-          if [ -f ios/Podfile ]; then
-            sed -i.bak "s/platform :ios, .*/platform :ios, '15.0'/g" ios/Podfile || true
-          fi
+          flutter build ios --release --no-codesign
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -sdk iphoneos \
+            -configuration Release \
+            archive -archivePath build/ios/archive/Runner.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
-      - name: Build IPA (no codesign)
+      - name: Export IPA
         script: |
-          flutter clean
-          flutter pub get
-          flutter build ipa --no-codesign \
-            --build-name=1.0.0 \
-            --build-number=${BUILD_NUMBER:-1}
+          mkdir -p build/ios/ipa
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>ad-hoc</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>compileBitcode</key>
+            <false/>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            CODE_SIGNING_ALLOWED=NO
 
     artifacts:
       - build/ios/ipa/*.ipa
