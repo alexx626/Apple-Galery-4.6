@@ -6,9 +6,36 @@ workflows:
       flutter: stable
       xcode: latest
     scripts:
-      - name: Flutter pub get
+      - name: Flutter doctor
+        script: |
+          flutter --version
+          flutter doctor -v
+
+      - name: Get packages
         script: flutter pub get
+
+      - name: Ensure iOS platform
+        script: |
+          if [ ! -d "ios" ]; then
+            echo "⚡ Generating iOS project..."
+            flutter create . --platforms=ios --project-name alexx626
+          else
+            echo "✅ iOS folder already exists."
+          fi
+
+      - name: Update Podfile (set min iOS 15)
+        script: |
+          if [ -f ios/Podfile ]; then
+            sed -i.bak "s/platform :ios, .*/platform :ios, '15.0'/g" ios/Podfile || true
+          fi
+
       - name: Build IPA (no codesign)
-        script: flutter build ipa --no-codesign
+        script: |
+          flutter clean
+          flutter pub get
+          flutter build ipa --no-codesign \
+            --build-name=1.0.0 \
+            --build-number=${BUILD_NUMBER:-1}
+
     artifacts:
       - build/ios/ipa/*.ipa
